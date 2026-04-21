@@ -22,7 +22,7 @@ fi
 
 # Python 依存関係のインストール
 echo ">>> Python パッケージをインストール中..."
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 mkdir -p uploads outputs
 
