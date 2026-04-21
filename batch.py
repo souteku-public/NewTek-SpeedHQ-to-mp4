@@ -26,6 +26,43 @@ def find_mov_files(folder: Path) -> list[Path]:
                   if p.suffix.lower() == ".mov" and p.is_file())
 
 
+def get_duration(path: Path) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error",
+         "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1",
+         str(path)],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(result.stdout.strip())
+    except ValueError:
+        return 0.0
+
+
+def parse_time(line: str) -> float:
+    for part in line.split():
+        if part.startswith("time="):
+            t = part[5:]
+            try:
+                h, m, s = t.split(":")
+                return int(h) * 3600 + int(m) * 60 + float(s)
+            except (ValueError, AttributeError):
+                pass
+    return 0.0
+
+
+def fmt_time(sec: float) -> str:
+    h, rem = divmod(int(sec), 3600)
+    m, s = divmod(rem, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
+
+def progress_bar(pct: int, width: int = 28) -> str:
+    filled = int(width * pct / 100)
+    return f"[{'█' * filled}{'░' * (width - filled)}] {pct:3d}%"
+
+
 def convert(src: Path, output_dir: Path | None) -> bool:
     dst_dir = output_dir or src.parent
     dst = dst_dir / (src.stem + ".mp4")
@@ -34,6 +71,7 @@ def convert(src: Path, output_dir: Path | None) -> bool:
         print(f"  スキップ（変換済み）: {dst.name}")
         return True
 
+    duration = get_duration(src)
     cmd = ["ffmpeg", "-y", "-i", str(src)] + FFMPEG_CMD + [str(dst)]
 
     proc = subprocess.Popen(
@@ -47,12 +85,24 @@ def convert(src: Path, output_dir: Path | None) -> bool:
     stderr_lines = []
     for line in proc.stderr:
         stderr_lines.append(line)
-        # リアルタイム進捗表示（frame= / time= が含まれる行）
-        if "frame=" in line or "time=" in line:
-            print(f"\r  {line.rstrip()}", end="", flush=True)
+        if "time=" not in line:
+            continue
+        elapsed = parse_time(line)
+        if elapsed <= 0:
+            continue
+
+        speed = next((p for p in line.split() if p.startswith("speed=")), "")
+
+        if duration > 0:
+            pct = min(int(elapsed / duration * 100), 99)
+            bar = progress_bar(pct)
+            time_str = f"{fmt_time(elapsed)} / {fmt_time(duration)}"
+            print(f"\r  {bar}  {time_str}  {speed}   ", end="", flush=True)
+        else:
+            print(f"\r  変換中: {fmt_time(elapsed)}  {speed}   ", end="", flush=True)
 
     proc.wait()
-    print()  # 改行
+    print()
 
     if proc.returncode == 0:
         size_mb = dst.stat().st_size / 1024 / 1024
