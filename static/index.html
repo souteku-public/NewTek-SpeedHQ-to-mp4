@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeedHQ → MP4 コンバーター</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+      color: #f1f5f9;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      margin-top: 8px;
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ── Drop Zone ── */
+    #drop-zone {
+      border: 2px dashed rgba(99, 102, 241, 0.6);
+      border-radius: 14px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: #818cf8;
+    }
+
+    #drop-zone .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    #drop-zone h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    #drop-zone p {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+
+    #file-input { display: none; }
+
+    /* ── File selected info ── */
+    #file-info {
+      display: none;
+      margin-top: 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      color: #cbd5e1;
+      word-break: break-all;
+    }
+
+    #file-info span { color: #a78bfa; font-weight: 600; }
+
+    /* ── Button ── */
+    #convert-btn {
+      display: none;
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    #convert-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    #convert-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Progress ── */
+    #progress-section {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #a78bfa);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-fill.indeterminate {
+      width: 40%;
+      animation: slide 1.4s ease-in-out infinite;
+    }
+
+    @keyframes slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(300%); }
+    }
+
+    /* ── Status text ── */
+    #status-text {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    /* ── Download button ── */
+    #download-btn {
+      display: none;
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    #download-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* ── Error ── */
+    #error-box {
+      display: none;
+      margin-top: 16px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: #fca5a5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Reset link ── */
+    #reset-link {
+      display: none;
+      margin-top: 16px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6366f1;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ── Info section ── */
+    .info {
+      margin-top: 32px;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .info h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+
+    .info ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .info ul li {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>SpeedHQ → MP4 コンバーター</h1>
+    <p>NewTek SpeedHQ コーデックの MOV ファイルを H.264 MP4 に変換します</p>
+  </header>
+
+  <div class="card">
+    <div id="drop-zone">
+      <div class="icon">🎬</div>
+      <h2>MOV ファイルをここにドロップ</h2>
+      <p>またはクリックしてファイルを選択</p>
+    </div>
+
+    <input type="file" id="file-input" accept=".mov,.MOV,video/quicktime" />
+
+    <div id="file-info"></div>
+
+    <button id="convert-btn">変換開始</button>
+
+    <div id="progress-section">
+      <div class="progress-label">
+        <span id="progress-label-text">変換中...</span>
+        <span id="progress-pct">—</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill indeterminate" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <div id="status-text"></div>
+
+    <a id="download-btn" href="#" download>⬇ MP4 をダウンロード</a>
+
+    <div id="error-box"></div>
+
+    <span id="reset-link">別のファイルを変換する</span>
+  </div>
+
+  <div class="info">
+    <h3>変換設定</h3>
+    <ul>
+      <li>映像: H.264 (CRF 18)</li>
+      <li>音声: AAC 192kbps</li>
+      <li>最適化: Web 再生向け</li>
+      <li>入力: SpeedHQ / あらゆる MOV</li>
+    </ul>
+  </div>
+
+  <script>
+    const dropZone    = document.getElementById('drop-zone');
+    const fileInput   = document.getElementById('file-input');
+    const fileInfo    = document.getElementById('file-info');
+    const convertBtn  = document.getElementById('convert-btn');
+    const progressSec = document.getElementById('progress-section');
+    const progressFill= document.getElementById('progress-fill');
+    const progressPct = document.getElementById('progress-pct');
+    const progressLbl = document.getElementById('progress-label-text');
+    const statusText  = document.getElementById('status-text');
+    const downloadBtn = document.getElementById('download-btn');
+    const errorBox    = document.getElementById('error-box');
+    const resetLink   = document.getElementById('reset-link');
+
+    let selectedFile = null;
+    let pollTimer = null;
+
+    // ── File selection ──────────────────────────────────────────
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    function handleFile(file) {
+      selectedFile = file;
+      const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+      fileInfo.innerHTML = `選択中: <span>${escHtml(file.name)}</span> (${sizeMB} MB)`;
+      fileInfo.style.display = 'block';
+      convertBtn.style.display = 'block';
+      errorBox.style.display = 'none';
+      downloadBtn.style.display = 'none';
+      resetLink.style.display = 'none';
+      progressSec.style.display = 'none';
+      statusText.textContent = '';
+    }
+
+    // ── Convert ─────────────────────────────────────────────────
+    convertBtn.addEventListener('click', () => {
+      if (!selectedFile) return;
+      startConversion(selectedFile);
+    });
+
+    function startConversion(file) {
+      convertBtn.disabled = true;
+
+      // Show upload progress
+      progressSec.style.display = 'block';
+      progressLbl.textContent = 'アップロード中...';
+      setIndeterminate(true);
+      statusText.textContent = '';
+      errorBox.style.display = 'none';
+      downloadBtn.style.display = 'none';
+      resetLink.style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          setIndeterminate(false);
+          progressFill.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+          progressLbl.textContent = 'アップロード中...';
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          const { job_id } = JSON.parse(xhr.responseText);
+          progressLbl.textContent = '変換中...';
+          setIndeterminate(true);
+          progressPct.textContent = '—';
+          pollStatus(job_id);
+        } else {
+          showError('アップロードに失敗しました: ' + xhr.statusText);
+        }
+      });
+
+      xhr.addEventListener('error', () => showError('ネットワークエラーが発生しました'));
+
+      xhr.open('POST', '/api/convert');
+      xhr.send(formData);
+    }
+
+    // ── Poll status ─────────────────────────────────────────────
+    function pollStatus(jobId) {
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${jobId}`);
+          if (!res.ok) { clearInterval(pollTimer); showError('ステータスの取得に失敗しました'); return; }
+          const data = await res.json();
+
+          if (data.status === 'converting') {
+            if (data.progress > 0) {
+              setIndeterminate(false);
+              progressFill.style.width = data.progress + '%';
+              progressPct.textContent = data.progress + '%';
+            }
+          } else if (data.status === 'done') {
+            clearInterval(pollTimer);
+            setIndeterminate(false);
+            progressFill.style.width = '100%';
+            progressPct.textContent = '100%';
+            progressLbl.textContent = '変換完了！';
+            statusText.textContent = '✅ MP4 ファイルの準備ができました';
+            downloadBtn.href = `/api/download/${jobId}`;
+            downloadBtn.style.display = 'block';
+            resetLink.style.display = 'block';
+          } else if (data.status === 'error') {
+            clearInterval(pollTimer);
+            showError(data.error || '変換中にエラーが発生しました');
+          }
+        } catch {
+          clearInterval(pollTimer);
+          showError('サーバーとの通信に失敗しました');
+        }
+      }, 1500);
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────
+    function setIndeterminate(on) {
+      if (on) {
+        progressFill.classList.add('indeterminate');
+        progressFill.style.width = '';
+      } else {
+        progressFill.classList.remove('indeterminate');
+      }
+    }
+
+    function showError(msg) {
+      progressSec.style.display = 'none';
+      errorBox.textContent = '❌ ' + msg;
+      errorBox.style.display = 'block';
+      resetLink.style.display = 'block';
+      convertBtn.disabled = false;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    resetLink.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      convertBtn.style.display = 'none';
+      convertBtn.disabled = false;
+      progressSec.style.display = 'none';
+      statusText.textContent = '';
+      downloadBtn.style.display = 'none';
+      errorBox.style.display = 'none';
+      resetLink.style.display = 'none';
+      if (pollTimer) clearInterval(pollTimer);
+    });
+  </script>
+</body>
+</html>
