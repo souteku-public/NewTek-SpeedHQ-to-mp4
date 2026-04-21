@@ -9,4 +9,4 @@ echo ">>> http://${HOST}:${PORT} で起動中..."
 echo ">>> 停止: Ctrl+C"
 echo ""
 
-exec uvicorn app:app --host "$HOST" --port "$PORT" --reload
+exec python3 -m uvicorn app:app --host "$HOST" --port "$PORT" --reload
